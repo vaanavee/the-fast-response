@@ -11,7 +11,7 @@ import {
   INITIAL_AMBULANCES, INITIAL_HOSPITALS, USER_LOCATION,
   MAP_CENTER, ROAD_POLYLINE_TO_SCENE
 } from '../data/mockData';
-import { sendSOSAlert, resetDispatch } from '../services/api';
+import { sendSOSAlert, resetDispatch, fetchNearbyAmbulances, fetchNearbyHospitals } from '../services/api';
 
 // Custom Marker DivIcons
 const userIcon = L.divIcon({
@@ -44,10 +44,22 @@ const hospitalIcon = L.divIcon({
 export const UserPortal: React.FC = () => {
   const [sosActive, setSosActive] = useState<boolean>(false);
   const [ambulances, setAmbulances] = useState<Ambulance[]>(INITIAL_AMBULANCES);
-  const [hospitals] = useState<Hospital[]>(INITIAL_HOSPITALS);
+  const [hospitals, setHospitals] = useState<Hospital[]>(INITIAL_HOSPITALS);
   const [simulationIndex, setSimulationIndex] = useState<number>(0);
   const [liveEta, setLiveEta] = useState<number>(4);
   const simulationIntervalRef = useRef<any>(null);
+
+  // Fetch initial telemetry from backend if available
+  useEffect(() => {
+    let isMounted = true;
+    fetchNearbyAmbulances(USER_LOCATION[0], USER_LOCATION[1]).then(data => {
+      if (isMounted && data && data.length > 0) setAmbulances(data);
+    });
+    fetchNearbyHospitals(USER_LOCATION[0], USER_LOCATION[1]).then(data => {
+      if (isMounted && data && data.length > 0) setHospitals(data);
+    });
+    return () => { isMounted = false; };
+  }, []);
 
   // Handle SOS Alert trigger
   const handleTriggerSOS = async () => {
@@ -315,6 +327,7 @@ export const UserPortal: React.FC = () => {
             center={MAP_CENTER}
             zoom={15}
             scrollWheelZoom={true}
+            style={{ height: '100%', minHeight: '520px', width: '100%' }}
             className="w-full h-full dark-tiles"
           >
             <TileLayer

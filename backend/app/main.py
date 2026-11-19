@@ -1,18 +1,50 @@
 import json
 import logging
+import os
+import sys
 from datetime import datetime
+from pathlib import Path
 from typing import List, Optional
+
+# Ensure both backend root and current directory are on sys.path
+current_dir = Path(__file__).resolve().parent
+backend_dir = current_dir.parent
+root_dir = backend_dir.parent
+
+for p in [str(backend_dir), str(current_dir), str(root_dir)]:
+    if p not in sys.path:
+        sys.path.insert(0, p)
+
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Query, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
-from app.models import (
-    Ambulance, Hospital, CrashAlertRequest, SOSDispatchRequest
-)
-from app.data import (
-    MOCK_AMBULANCES, MOCK_HOSPITALS, ROAD_POLYLINE_TO_SCENE, 
-    ROAD_POLYLINE_TO_HOSPITAL, ALTERNATIVE_ROUTES
-)
+# Flexible imports supporting all execution methods (uvicorn, direct python, module)
+try:
+    from app.models import (
+        Ambulance, Hospital, CrashAlertRequest, SOSDispatchRequest
+    )
+    from app.data import (
+        MOCK_AMBULANCES, MOCK_HOSPITALS, ROAD_POLYLINE_TO_SCENE, 
+        ROAD_POLYLINE_TO_HOSPITAL, ALTERNATIVE_ROUTES
+    )
+except ImportError:
+    try:
+        from models import (
+            Ambulance, Hospital, CrashAlertRequest, SOSDispatchRequest
+        )
+        from data import (
+            MOCK_AMBULANCES, MOCK_HOSPITALS, ROAD_POLYLINE_TO_SCENE, 
+            ROAD_POLYLINE_TO_HOSPITAL, ALTERNATIVE_ROUTES
+        )
+    except ImportError:
+        from backend.app.models import (
+            Ambulance, Hospital, CrashAlertRequest, SOSDispatchRequest
+        )
+        from backend.app.data import (
+            MOCK_AMBULANCES, MOCK_HOSPITALS, ROAD_POLYLINE_TO_SCENE, 
+            ROAD_POLYLINE_TO_HOSPITAL, ALTERNATIVE_ROUTES
+        )
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("Thefirstresponse360")
@@ -68,6 +100,7 @@ platform_state = {
     "current_mission_stage": "IDLE", # IDLE, EN_ROUTE_SCENE, AT_SCENE, EN_ROUTE_HOSPITAL, COMPLETED
     "dispatched_ambulance_id": "TN-1001",
     "selected_hospital_id": "HOSP-01",
+    "ambulANCES": list(MOCK_AMBULANCES),
     "ambulances": list(MOCK_AMBULANCES),
     "hospitals": list(MOCK_HOSPITALS),
     "user_location": {"lat": 13.05060, "lon": 80.21140},
@@ -288,7 +321,6 @@ async def websocket_dispatch_endpoint(websocket: WebSocket):
                         "payload": {"mission_stage": "IDLE", "sos_active": False}
                     })
                 else:
-                    # Echo broadcast for peer-to-peer sync
                     await manager.broadcast({
                         "type": "GENERIC_BROADCAST",
                         "timestamp": datetime.utcnow().isoformat(),
@@ -304,4 +336,4 @@ async def websocket_dispatch_endpoint(websocket: WebSocket):
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("app.main:app", host="0.0.0.0", port=8000, reload=True)
+    uvicorn.run(app, host="0.0.0.0", port=8000)

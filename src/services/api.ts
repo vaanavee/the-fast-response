@@ -1,7 +1,15 @@
 import { Ambulance, Hospital, MissionStage } from '../types';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
-const WS_BASE_URL = import.meta.env.VITE_WS_URL || 'ws://localhost:8000';
+const isBrowser = typeof window !== 'undefined';
+// When served via Vite dev server or production reverse proxy, use current origin
+// When VITE_API_URL is explicitly set, honor it
+export const API_BASE_URL = import.meta.env.VITE_API_URL ?? (isBrowser ? '' : 'http://localhost:8000');
+
+export const WS_BASE_URL = import.meta.env.VITE_WS_URL ?? (
+  isBrowser
+    ? `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}`
+    : 'ws://localhost:8000'
+);
 
 export async function fetchNearbyAmbulances(lat = 13.05060, lon = 80.21140): Promise<Ambulance[]> {
   try {
@@ -70,10 +78,12 @@ export function createDispatchWebSocket(onMessage: (data: any) => void, onStatus
 
   function connect() {
     try {
-      ws = new WebSocket(`${WS_BASE_URL}/ws/dispatch`);
+      // Connect to /ws/dispatch endpoint
+      const wsUrl = `${WS_BASE_URL}/ws/dispatch`;
+      ws = new WebSocket(wsUrl);
 
       ws.onopen = () => {
-        console.log('[WebSocket] Connected to Dispatch Center');
+        console.log('[WebSocket] Connected to Dispatch Center at', wsUrl);
         onStatusChange?.(true);
       };
 
@@ -87,21 +97,21 @@ export function createDispatchWebSocket(onMessage: (data: any) => void, onStatus
       };
 
       ws.onclose = () => {
-        console.log('[WebSocket] Connection closed. Retrying in 3s...');
+        console.log('[WebSocket] Connection closed. Retrying in 4s...');
         onStatusChange?.(false);
         if (shouldReconnect) {
-          reconnectTimer = setTimeout(connect, 3000);
+          reconnectTimer = setTimeout(connect, 4000);
         }
       };
 
       ws.onerror = (error) => {
-        console.warn('[WebSocket] Connection error:', error);
+        console.warn('[WebSocket] Connection notice (backend may be offline):', error);
         ws?.close();
       };
     } catch (e) {
       console.warn('[WebSocket] Init error:', e);
       if (shouldReconnect) {
-        reconnectTimer = setTimeout(connect, 3000);
+        reconnectTimer = setTimeout(connect, 4000);
       }
     }
   }

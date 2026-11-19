@@ -327,6 +327,7 @@ export const DriverPortal: React.FC = () => {
             center={MAP_CENTER}
             zoom={15}
             scrollWheelZoom={true}
+            style={{ height: '100%', minHeight: '520px', width: '100%' }}
             className="w-full h-full dark-tiles"
           >
             <TileLayer
